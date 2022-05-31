@@ -2,6 +2,10 @@ import math
 import statistics
 import sys
 import random
+"""
+We have understood the requirement 300(b+1) integer memory limit refer to the bucket counters and constants of 
+hash/sign functions, i.e. what is printed and recuperated. Thus not including integers like s, n, t, b
+"""
 
 def main():
     random.seed(132)
@@ -18,19 +22,19 @@ def main():
             b = int(l[2])
 
     lines = lines[2:]
-    if 2*n <= 300*(b+1):
-        save_all(s, n, t, b, lines)
-    else:
-        count_sketch(s, n, t, b, lines)
 
+    # decide what this should be, num of buckets
+    bucks = 7*b
     # number of hash fucs. delta and c to be decided
-    d = c*math.log2(1/delta)
-    # decid what this should be, num of buckets
-    bucks = 3/epsilon**2
-    bucket_counters = [[0 for _ in range(bucks)] for _ in range(d)] # t x bucks
+    d = math.floor(300*(b+1)/(6+bucks))
+    bucket_counters = [[0 for _ in range(bucks)] for _ in range(d)] # d x bucks
     # now choosing the first abitrarly
-    p = find_prims(n)[0]
-    hash_list, sign_list = generate_ind_hash(p, d, bucks)
+    p = find_prim(n)
+
+    if p is None:
+        return None
+
+    hash_list, sign_list = generate_ind_hash(p, d)
 
     if hash_list is None:
         return None
@@ -38,10 +42,10 @@ def main():
     counter = 0
     if s == 1:
         for line in lines:
-            l = line.rstrip().split(" ")
             if counter == n:
                 break
             else:
+                l = line.rstrip().split(" ")
                 id = int(l[0])
                 score = int(l[1])
                 for i in range(d):
@@ -50,7 +54,15 @@ def main():
                     #minus because I want to take yi - xi and this is xi
                     bucket_counters[i][hash_f(id)] -= sign_f[id]*score
             counter += 1
-        #Not really return, need to print what needs printing
+        print(d*(6+bucks))
+        for i in range(d):
+            for j in range(bucks):
+                print(bucket_counters[i][j], end=" ")
+
+        for i in range(d):
+            print(hash_list[i].for_print(), end=" ")
+            print(sign_list[i].for_print(), end=" ")
+
         return bucket_counters, hash_list, sign_list
     else:
         l = lines.pop(0).rstrip().split(" ")
@@ -89,12 +101,6 @@ def main():
                         print("No")
             sys.stdout.flush()
 
-def save_all(s, n, t, b, lines):
-    if s == 1:
-        mem = [0 for _ in range(n)]
-        for line in lines:
-            l = line.rstrip().split(" ")
-
 def bucks_and_R(n, b):
     if b >= 1:
         bucks = 10*b
@@ -112,17 +118,14 @@ def bucks_and_R(n, b):
             pass
         else:
             R = 65
-def find_prims(n):
+
+def find_prim(n):
+    """first prim between n and 2n"""
     b = 2*n
-    res = []
     if n == 1:
-        res.append(n)
-        n += 1
-        if (b >= 2):
-            res.append(n)
-            n += 1
+        return n
     if n == 2:
-        res.append(n)
+        return n
     if n % 2 == 0:
         n += 1
     for i in range(n, b + 1, 2):
@@ -134,10 +137,10 @@ def find_prims(n):
                 break
             j += 1
         if flag == 1:
-            res.append(i)
-    return res
+            return i
+    return None
 
-def generate_ind_hash(p, d, bucks):
+def generate_ind_hash(p, d):
     h_a = []
     h_b = []
     s_a = []
@@ -157,25 +160,49 @@ def generate_ind_hash(p, d, bucks):
                                                         and len(s_c) != len(set(s_c)) and len(s_d) != len(set(s_d))):
         return None, None
     else:
-        return hash(h_a, h_b, s_a, s_b, s_c, s_d, p, d, bucks)
+        return hash(h_a, h_b, s_a, s_b, s_c, s_d, d)
 
-def hash(h_a, h_b, s_a, s_b, s_c, s_d, p, d, bucks):
+def hash(hash_list, value, p, bucks):
+    s = 0
+    for i, const in enumerate(hash_list):
+        s += const*value**i
+
+    return (s % p) % bucks
+
+def sign_hash(hash_list, value, p):
+    s = 0
+    for i, const in enumerate(hash_list):
+        s += const * value ** i
+    return (((s % p) % 2) - 0.5) * 2
+
+def hash(h_a, h_b, s_a, s_b, s_c, s_d, nr_hash):
     hash_list = []
     sign_list = []
-    for i in range(d):
+    for i in range(nr_hash):
         a = h_a[i]
         b = h_b[i]
-        def curried_hash(value):
-            return ((a*value + b) % p) % bucks
-        hash_list.append(curried_hash)
+        hash_list.append(Hashes.all_var(Hashes, [a, b]))
         a = s_a[i]
         b = s_b[i]
         c = s_c[i]
         d = s_d[i]
-        def curried_sign_hash(value):
-            return ((((a*value**3 + b*value**2 + c*value + d) % p) % 2) - 0.5)*2
-        sign_list.append(curried_sign_hash)
+        sign_list.append(Hashes.all_var(Hashes, [a, b, c, d]))
     return hash_list, sign_list
 
+class Hashes:
+    """Class to store hashing constants, will contain 2 integers if hash function and 4 integers if sign function"""
+    def __init__(self):
+        self.vars = []
+
+    def add_var(self, val):
+        self.vars.append(val)
+
+    def all_var(self, array):
+        self.vars = array
+
+    def for_print(self):
+        stringed = " ".join(self.vars)
+        return stringed
+
 if __name__ == "__main__":
-    print(find_prims(100000))
+    print(find_prim(20))
