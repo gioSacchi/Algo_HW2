@@ -10,9 +10,8 @@ hash/sign functions, i.e. what is printed and recuperated. Thus not including in
 def main():
     random.seed(132)
     s, n, t, b = 0, 0, 0, 0
-    lines = list(sys.stdin)
-    for line in lines[:2]:
-        lines.remove(line)
+    lines = sys.stdin
+    for line in lines:
         l = line.rstrip().split(" ")
         if s == 0:
             s = int(l[0])
@@ -21,7 +20,8 @@ def main():
             t = int(l[1])
             b = int(l[2])
 
-    lines = lines[2:]
+    # sort for reinit??????
+    lines = sys.stdin
 
     # decide what this should be, num of buckets
     bucks = 7*b
@@ -49,10 +49,10 @@ def main():
                 id = int(l[0])
                 score = int(l[1])
                 for i in range(d):
-                    hash_f = hash_list[i]
-                    sign_f = sign_list[i]
-                    #minus because I want to take yi - xi and this is xi
-                    bucket_counters[i][hash_f(id)] -= sign_f[id]*score
+                    hash_f = func_hash(hash_list[i], id, p, bucks)
+                    sign_f = sign_hash(hash_list[i], id, p)
+                    # minus because I want to take yi - xi and this is xi
+                    bucket_counters[i][hash_f] -= sign_f*score
             counter += 1
         print(d*(6+bucks))
         for i in range(d):
@@ -61,9 +61,10 @@ def main():
 
         for i in range(d):
             print(hash_list[i].for_print(), end=" ")
-            print(sign_list[i].for_print(), end=" ")
-
-        return bucket_counters, hash_list, sign_list
+            if i == d:
+                print(sign_list[i].for_print())
+            else:
+                print(sign_list[i].for_print(), end=" ")
     else:
         l = lines.pop(0).rstrip().split(" ")
         m = int(l[0])
@@ -100,24 +101,6 @@ def main():
                     else:
                         print("No")
             sys.stdout.flush()
-
-def bucks_and_R(n, b):
-    if b >= 1:
-        bucks = 10*b
-        # want 15ln(n)<=R<=30 + 179/(10b+4)
-        if 15*math.log(n) > 30 + 179/(bucks+4):
-            #what should I do?
-            pass
-        else:
-            R = 30 + math.floor(179/(bucks+4))
-    else:
-        bucks = 1
-        # want 15ln(n)<=R<=30 + 179/5 = 65
-        if 15*math.log(n) > 65:
-            #what should I do?
-            pass
-        else:
-            R = 65
 
 def find_prim(n):
     """first prim between n and 2n"""
@@ -162,16 +145,15 @@ def generate_ind_hash(p, d):
     else:
         return hash(h_a, h_b, s_a, s_b, s_c, s_d, d)
 
-def hash(hash_list, value, p, bucks):
+def func_hash(hash_vals, value, p, bucks):
     s = 0
-    for i, const in enumerate(hash_list):
+    for i, const in enumerate(hash_vals):
         s += const*value**i
-
     return (s % p) % bucks
 
-def sign_hash(hash_list, value, p):
+def sign_hash(hash_vals, value, p):
     s = 0
-    for i, const in enumerate(hash_list):
+    for i, const in enumerate(hash_vals):
         s += const * value ** i
     return (((s % p) % 2) - 0.5) * 2
 
