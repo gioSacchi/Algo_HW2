@@ -9,51 +9,50 @@ hash/sign functions, i.e. what is printed and recuperated. Thus not including in
 
 def main():
     random.seed(132)
-    s, n, t, b = 0, 0, 0, 0
+    s, n, t, b = 0, None, 0, 0
     lines = sys.stdin
     for line in lines:
         l = line.rstrip().split(" ")
         if s == 0:
             s = int(l[0])
-        elif n == 0:
+        elif n is None:
             n = int(l[0])
             t = int(l[1])
             b = int(l[2])
-
-    # sort for reinit??????
-    lines = sys.stdin
-
+        else:
+            break
     # decide what this should be, num of buckets
     bucks = 7*b
     # number of hash fucs. delta and c to be decided
     d = math.floor(300*(b+1)/(6+bucks))
-    bucket_counters = [[0 for _ in range(bucks)] for _ in range(d)] # d x bucks
     # now choosing the first abitrarly
     p = find_prim(n)
 
     if p is None:
         return None
 
-    hash_list, sign_list = generate_ind_hash(p, d)
-
-    if hash_list is None:
-        return None
-
     counter = 0
     if s == 1:
+        bucket_counters = [[0 for _ in range(bucks)] for _ in range(d)]  # d x bucks
+        hash_list, sign_list = generate_ind_hash(p, d)
+
+        if hash_list is None:
+            return None
+
         for line in lines:
             if counter == n:
                 break
-            else:
-                l = line.rstrip().split(" ")
-                id = int(l[0])
-                score = int(l[1])
-                for i in range(d):
-                    hash_f = func_hash(hash_list[i], id, p, bucks)
-                    sign_f = sign_hash(hash_list[i], id, p)
-                    # minus because I want to take yi - xi and this is xi
-                    bucket_counters[i][hash_f] -= sign_f*score
+            l = line.rstrip().split(" ")
+            id = int(l[0])
+            score = int(l[1])
+            for i in range(d):
+                hash_f = func_hash(hash_list[i], id, p, bucks)
+                sign_f = sign_hash(hash_list[i], id, p)
+                # minus because I want to take yi - xi and this is xi
+                bucket_counters[i][hash_f] -= sign_f*score
             counter += 1
+
+        # output
         print(d*(6+bucks))
         for i in range(d):
             for j in range(bucks):
@@ -66,40 +65,57 @@ def main():
             else:
                 print(sign_list[i].for_print(), end=" ")
     else:
-        l = lines.pop(0).rstrip().split(" ")
-        m = int(l[0])
-        l = lines.pop(0).rstrip().split(" ")
-        # extract the m elements from l and save
-
-        for line in lines[:n]:
-            l = line.rstrip().split(" ")
-            id = int(l[0])
-            score = int(l[1])
-            for i in range(d):
-                hash_f = hash_list[i]
-                sign_f = sign_list[i]
-                # plus because I want to take yi - xi and this is yi
-                bucket_counters[i][hash_f(id)] += sign_f[id] * score
-
-        rem_lines = lines[n:]
-        # sequential queries now
-        k = rem_lines.pop(0).rstrip().split(" ")
-        for q_i in range(k):
-            #do I already have the first one?
-            approx = []
-            if q_i == 0:
-                id = rem_lines[0]
+        m = 0
+        bucket_counters = []
+        hash_list = []
+        sign_list = []
+        for line in lines:
+            # input
+            if m == 0:
+                l = line.rstrip().split(" ")
+                m = int(l[0])
+            elif len(bucket_counters) == 0:
+                l = line.rstrip().split(" ")
+                bucket_vals = l[:bucks*d]
+                hashing_vals = l[bucks*d:]
                 for i in range(d):
-                    hash_f = hash_list[i]
-                    sign_f = sign_list[i]
+                    bucket_counters.append([])
+                    for j in range(bucks):
+                        bucket_counters[-1].append(bucket_vals[i*bucks + j])
+                hash_list, sign_list = hash_s2(hashing_vals, d)
+            else:
+                if counter == n:
+                    break
+                l = line.rstrip().split(" ")
+                id = int(l[0])
+                score = int(l[1])
+                for i in range(d):
+                    hash_f = func_hash(hash_list[i], id, p, bucks)
+                    sign_f = sign_hash(hash_list[i], id, p)
                     # plus because I want to take yi - xi and this is yi
-                    approx.append(sign_f[id] * bucket_counters[i][hash_f(id)])
-                    #alt. sort and take middle elem
-                    med = statistics.median(approx)
-                    if med >= t:
-                        print("Yes")
-                    else:
-                        print("No")
+                    bucket_counters[i][hash_f] += sign_f * score
+                counter += 1
+
+        # sequential queries now
+        k = 0
+        for line in lines:
+            l = line.rstrip().split(" ")
+            if k == 0:
+                k = int(l[0])
+                continue
+            approx = []
+            id = int(l[0])
+            for i in range(d):
+                hash_f = func_hash(hash_list[i], id, p, bucks)
+                sign_f = sign_hash(hash_list[i], id, p)
+                # plus because I want to take yi - xi and this is yi
+                approx.append(sign_f * bucket_counters[i][hash_f])
+                #alt. sort and take middle elem
+                med = statistics.median(approx)
+                if med >= t/2:
+                    print("Yes")
+                else:
+                    print("No")
             sys.stdout.flush()
 
 def find_prim(n):
@@ -131,29 +147,27 @@ def generate_ind_hash(p, d):
     s_c = []
     s_d = []
     for i in range(d):
-        #p-1??
-        h_a.append(random.randint(1, p))
-        h_b.append((random.randint(0, p)))
-        s_a.append(random.randint(1, p))
-        s_b.append((random.randint(0, p)))
-        s_c.append((random.randint(0, p)))
-        s_d.append((random.randint(0, p)))
+        h_a.append(random.randint(1, p-1))
+        h_b.append((random.randint(0, p-1)))
+        s_a.append(random.randint(1, p-1))
+        s_b.append((random.randint(0, p-1)))
+        s_c.append((random.randint(0, p-1)))
+        s_d.append((random.randint(0, p-1)))
     #check none are equal
-    if (len(h_a) != len(set(h_a)) and len(h_b) != len(set(h_b))) or (len(s_a) != len(set(s_a)) and len(s_b) != len(set(s_b))
+    """if (len(h_a) != len(set(h_a)) and len(h_b) != len(set(h_b))) or (len(s_a) != len(set(s_a)) and len(s_b) != len(set(s_b))
                                                         and len(s_c) != len(set(s_c)) and len(s_d) != len(set(s_d))):
-        return None, None
-    else:
-        return hash(h_a, h_b, s_a, s_b, s_c, s_d, d)
+        return None, None"""
+    return hash(h_a, h_b, s_a, s_b, s_c, s_d, d)
 
 def func_hash(hash_vals, value, p, bucks):
     s = 0
-    for i, const in enumerate(hash_vals):
+    for i, const in enumerate(hash_vals.vars):
         s += const*value**i
     return (s % p) % bucks
 
 def sign_hash(hash_vals, value, p):
     s = 0
-    for i, const in enumerate(hash_vals):
+    for i, const in enumerate(hash_vals.vars):
         s += const * value ** i
     return (((s % p) % 2) - 0.5) * 2
 
@@ -163,28 +177,31 @@ def hash(h_a, h_b, s_a, s_b, s_c, s_d, nr_hash):
     for i in range(nr_hash):
         a = h_a[i]
         b = h_b[i]
-        hash_list.append(Hashes.all_var(Hashes, [a, b]))
+        hash_list.append(Hashes([a, b]))
         a = s_a[i]
         b = s_b[i]
         c = s_c[i]
         d = s_d[i]
-        sign_list.append(Hashes.all_var(Hashes, [a, b, c, d]))
+        sign_list.append(Hashes([a, b, c, d]))
+    return hash_list, sign_list
+
+def hash_s2(hash_vals, nr_hash):
+    hash_list = []
+    sign_list = []
+    for i in range(nr_hash):
+        vals = hash_vals[i*6:(i+1)*6]
+        hash_list.append(Hashes(vals[:2]))
+        sign_list.append(Hashes(vals[2:]))
     return hash_list, sign_list
 
 class Hashes:
     """Class to store hashing constants, will contain 2 integers if hash function and 4 integers if sign function"""
-    def __init__(self):
-        self.vars = []
-
-    def add_var(self, val):
-        self.vars.append(val)
-
-    def all_var(self, array):
+    def __init__(self, array):
         self.vars = array
 
     def for_print(self):
-        stringed = " ".join(self.vars)
+        stringed = " ".join([str(elem) for elem in self.vars])
         return stringed
 
 if __name__ == "__main__":
-    print(find_prim(20))
+    main()
