@@ -8,10 +8,10 @@ hash/sign functions, i.e. what is printed and recuperated. Thus not including in
 """
 
 def main():
-    random.seed(132)
+    random.seed(300)
     s, n, t, b = 0, None, 0, 0
-    lines = sys.stdin
-    for line in lines:
+    #lines = sys.stdin
+    for line in sys.stdin:
         l = line.rstrip().split(" ")
         if s == 0:
             s = int(l[0])
@@ -19,17 +19,17 @@ def main():
             n = int(l[0])
             t = int(l[1])
             b = int(l[2])
-        else:
             break
     # decide what this should be, num of buckets
     bucks = 7*b
     # number of hash fucs. delta and c to be decided
     d = math.floor(300*(b+1)/(6+bucks))
     # now choosing the first abitrarly
-    p = find_prim(n)
+    p = find_prim(10**8)
 
     if p is None:
-        return None
+        #print("bajs")
+        pass
 
     counter = 0
     if s == 1:
@@ -37,11 +37,10 @@ def main():
         hash_list, sign_list = generate_ind_hash(p, d)
 
         if hash_list is None:
-            return None
+            #print("bajs")
+            pass
 
-        for line in lines:
-            if counter == n:
-                break
+        for line in sys.stdin:
             l = line.rstrip().split(" ")
             id = int(l[0])
             score = int(l[1])
@@ -51,12 +50,14 @@ def main():
                 # minus because I want to take yi - xi and this is xi
                 bucket_counters[i][hash_f] -= sign_f*score
             counter += 1
+            if counter == n:
+                break
 
         # output
         print(d*(6+bucks))
         for i in range(d):
             for j in range(bucks):
-                print(bucket_counters[i][j], end=" ")
+                print(int(bucket_counters[i][j]), end=" ")
 
         for i in range(d):
             print(hash_list[i].for_print(), end=" ")
@@ -69,7 +70,7 @@ def main():
         bucket_counters = []
         hash_list = []
         sign_list = []
-        for line in lines:
+        for line in sys.stdin:
             # input
             if m == 0:
                 l = line.rstrip().split(" ")
@@ -81,11 +82,9 @@ def main():
                 for i in range(d):
                     bucket_counters.append([])
                     for j in range(bucks):
-                        bucket_counters[-1].append(bucket_vals[i*bucks + j])
+                        bucket_counters[-1].append(int(bucket_vals[i*bucks + j]))
                 hash_list, sign_list = hash_s2(hashing_vals, d)
             else:
-                if counter == n:
-                    break
                 l = line.rstrip().split(" ")
                 id = int(l[0])
                 score = int(l[1])
@@ -95,12 +94,15 @@ def main():
                     # plus because I want to take yi - xi and this is yi
                     bucket_counters[i][hash_f] += sign_f * score
                 counter += 1
+                if counter == n:
+                    break
 
         # sequential queries now
-        k = 0
-        for line in lines:
+        k = None
+        #counter = 0
+        for line in sys.stdin:
             l = line.rstrip().split(" ")
-            if k == 0:
+            if k is None:
                 k = int(l[0])
                 continue
             approx = []
@@ -110,13 +112,16 @@ def main():
                 sign_f = sign_hash(hash_list[i], id, p)
                 # plus because I want to take yi - xi and this is yi
                 approx.append(sign_f * bucket_counters[i][hash_f])
-                #alt. sort and take middle elem
-                med = statistics.median(approx)
-                if med >= t/2:
-                    print("Yes")
-                else:
-                    print("No")
+            #alt. sort and take middle elem
+            med = statistics.median(approx)
+            if med >= t/2:
+                print("Yes")
+            else:
+                print("No")
             sys.stdout.flush()
+            #counter += 1
+            #if counter >= k:
+                #break
 
 def find_prim(n):
     """first prim between n and 2n"""
@@ -190,8 +195,8 @@ def hash_s2(hash_vals, nr_hash):
     sign_list = []
     for i in range(nr_hash):
         vals = hash_vals[i*6:(i+1)*6]
-        hash_list.append(Hashes(vals[:2]))
-        sign_list.append(Hashes(vals[2:]))
+        hash_list.append(Hashes([int(val) for val in vals[:2]]))
+        sign_list.append(Hashes([int(val) for val in vals[2:]]))
     return hash_list, sign_list
 
 class Hashes:
